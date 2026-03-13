@@ -3,9 +3,9 @@
 #include <stdlib.h>
 #include <time.h>
 
-Node *createNode(int graph_position[2], int visual_position[2]) {
+static Node *createNode(int graph_position[2], int visual_position[2]) {
     Node *node = malloc(sizeof(Node));
-    if (!node) return NULL;
+    if (node == NULL) return NULL;
 
     for (int i = 0; i < 2; i++) {
         node->graph_position[i] = graph_position[i];
