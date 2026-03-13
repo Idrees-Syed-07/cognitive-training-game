@@ -23,7 +23,7 @@ static void update_cell(int x, int y) {
     /* Find the node at this (x, y) position */
     for (int r = 0; r < GRID_SIZE; r++) {
         for (int c = 0; c < GRID_SIZE; c++) {
-            if (g_graph->nodes[r][c]->x == x && g_graph->nodes[r][c]->y == y) {
+            if (g_graph->nodes[r][c]->visual_position[0] == x && g_graph->nodes[r][c]->visual_position[1] == y) {
                 node = g_graph->nodes[r][c];
                 break;
             }
@@ -66,19 +66,19 @@ static gboolean on_key_pressed(GtkEventControllerKey *controller,
         default: return FALSE;
     }
 
-    int old_x = g_player->node->x;
-    int old_y = g_player->node->y;
+    int old_x = g_player->node->visual_position[0];
+    int old_y = g_player->node->visual_position[1];
 
     MoveResult result = player_move(g_player, dir);
 
     if (result == MOVE_WALL) {
-        audio_play(g_wall_sound_path);
+        audio_play();
         return TRUE;
     }
 
     /* Update the old cell and the new cell */
     update_cell(old_x, old_y);
-    update_cell(g_player->node->x, g_player->node->y);
+    update_cell(g_player->node->visual_position[0], g_player->node->visual_position[1]);
 
     if (result == MOVE_WIN) {
         show_win_dialog(GTK_WIDGET(user_data));
@@ -127,12 +127,12 @@ static GtkWidget *build_grid(void) {
             gtk_widget_set_valign(image, GTK_ALIGN_CENTER);
             gtk_box_append(GTK_BOX(cell), image);
 
-            const char *css_class = ((node->x + node->y) % 2 == 0)
+            const char *css_class = ((node->visual_position[0] + node->visual_position[1]) % 2 == 0)
                                     ? "cell-light" : "cell-dark";
             gtk_widget_add_css_class(cell, css_class);
 
-            gtk_grid_attach(GTK_GRID(g_grid), cell, node->x, node->y, 1, 1);
-            g_cells[node->x][node->y] = image;
+            gtk_grid_attach(GTK_GRID(g_grid), cell, node->visual_position[0], node->visual_position[1], 1, 1);
+            g_cells[node->visual_position[0]][node->visual_position[1]] = image;
         }
     }
 
@@ -175,6 +175,8 @@ int gui_run(Graph *graph, int argc, char *argv[]) {
     g_wall_sound_path = g_build_filename(exe_dir, "..", "assets", "sounds", "wall.mp3", NULL);
     g_free(exe_dir);
 
+    audio_init(g_wall_sound_path);
+
     GtkApplication *app = gtk_application_new("com.cognitive.training",
                                                G_APPLICATION_DEFAULT_FLAGS);
     g_signal_connect(app, "activate", G_CALLBACK(activate), NULL);
@@ -182,6 +184,7 @@ int gui_run(Graph *graph, int argc, char *argv[]) {
     int status = g_application_run(G_APPLICATION(app), argc, argv);
 
     g_object_unref(app);
+    audio_free();
     player_free(g_player);
     g_free(g_coin_path);
     g_free(g_player_path);

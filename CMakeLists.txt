@@ -19,7 +19,7 @@ pkg_check_modules(GTK4 REQUIRED gtk4)
 
 add_executable(${PROJECT_NAME}
     src/main.c
-    src/graph.c
+    src/maze.c
     src/gui.c
     src/player.c
     src/audio.c

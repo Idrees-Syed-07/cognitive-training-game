@@ -24,10 +24,10 @@ MoveResult player_move(Player *player, char direction) {
     Node *next = NULL;
 
     switch (direction) {
-        case 'w': next = player->node->up;    break;
-        case 's': next = player->node->down;  break;
-        case 'a': next = player->node->left;  break;
-        case 'd': next = player->node->right; break;
+        case 'w': next = player->node->neighbours[UP];    break;
+        case 's': next = player->node->neighbours[DOWN];  break;
+        case 'a': next = player->node->neighbours[LEFT];  break;
+        case 'd': next = player->node->neighbours[RIGHT]; break;
     }
 
     if (!next) return MOVE_WALL;
