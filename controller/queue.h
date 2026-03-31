@@ -1,5 +1,3 @@
-#ifndef QUEUE_H
-#define QUEUE_H
 
 #include <stdbool.h>
 
@@ -18,5 +16,3 @@ Queue* createQueue();
 bool isEmpty(const Queue *q);
 void enqueue(Queue *q, float x, float y, float z);
 bool dequeue(Queue *q, float out[3]);
-
-#endif

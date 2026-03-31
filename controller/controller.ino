@@ -1,36 +1,58 @@
+#include <Wire.h>
 #include "MPU9250.h"
 #include "queue.h"
-#include <BleKeyboard.h>
+#include <HijelHID_BLEKeyboard.h>
 
-#define MOVEMENT_THRESHOLD 1.5
-#define SAMPLE_WINDOW 10
+#define POS_THRESHOLD 2.0f
+#define NEG_THRESHOLD 1.2f
+#define RESET_THRESHOLD 0.6f
+#define SAMPLE_WINDOW 4
 
 MPU9250 accelerometer;
-Queue* data;
-BleKeyboard bleKeyboard;
+Queue* data = nullptr;
+HijelHID_BLEKeyboard bleKeyboard("Motion Keyboard", "Hijel", 100);
+
+bool gestureArmed = true;
 
 void setup() {
-    data = createQueue();
-    if (data == NULL) return;
-
     Serial.begin(115200);
     Wire.begin();
     delay(2000);
 
+    data = createQueue();
+    if (data == nullptr) {
+        Serial.println("Queue creation failed");
+        return;
+    }
+
     bleKeyboard.begin();
 
-    accelerometer.setup(0x68);
-    delay(5000);
-    accelerometer.calibrateAccelGyro();
+    if (!accelerometer.setup(0x68)) {
+        Serial.println("MPU9250 setup failed");
+        return;
+    }
+
+    delay(1000);
+
 }
 
 void loop() {
+    if (data == nullptr) {
+        return;
+    }
+
     if (accelerometer.update()) {
-        enqueue(data, accelerometer.getLinearAccX(), accelerometer.getLinearAccY(), accelerometer.getLinearAccZ());
+        enqueue(
+            data,
+            accelerometer.getLinearAccX(),
+            accelerometer.getLinearAccY(),
+            accelerometer.getLinearAccZ()
+        );
     }
 
     if (data->count >= SAMPLE_WINDOW && bleKeyboard.isConnected()) {
-        float sumX = 0, sumY = 0;
+        float sumX = 0.0f;
+        float sumY = 0.0f;
         float out[3];
         int samples = 0;
 
@@ -40,12 +62,44 @@ void loop() {
             samples++;
         }
 
+        if (samples == 0) {
+            return;
+        }
+
         float avgX = sumX / samples;
         float avgY = sumY / samples;
 
-        if      (avgX >  MOVEMENT_THRESHOLD) bleKeyboard.write('d');
-        else if (avgX < -MOVEMENT_THRESHOLD) bleKeyboard.write('a');
-        else if (avgY >  MOVEMENT_THRESHOLD) bleKeyboard.write('w');
-        else if (avgY < -MOVEMENT_THRESHOLD) bleKeyboard.write('s');
+        // re-arm only when motion settles back down
+        if (!gestureArmed) {
+            if (abs(avgX) < RESET_THRESHOLD && abs(avgY) < RESET_THRESHOLD) {
+                gestureArmed = true;
+            }
+            return;
+        }
+        if ( abs(avgX)>abs(avgY)){
+            if (avgX > POS_THRESHOLD) {
+                bleKeyboard.tap(KEY_D);
+                gestureArmed = false;
+                Serial.println("D");
+            } 
+            else if (avgX < -NEG_THRESHOLD) {
+                bleKeyboard.tap(KEY_A);
+                gestureArmed = false;
+                Serial.println("A");
+            }
+        }
+        else
+        {
+            if (avgY > POS_THRESHOLD) {
+                bleKeyboard.tap(KEY_W);
+                gestureArmed = false;
+                Serial.println("W");
+            } 
+            else if (avgY < -NEG_THRESHOLD) {
+                bleKeyboard.tap(KEY_S);
+                gestureArmed = false;
+                Serial.println("S");
+            }
+        }
     }
 }
