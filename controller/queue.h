@@ -13,6 +13,6 @@ typedef struct {
 } Queue;
 
 Queue* createQueue();
-bool isEmpty(const Queue *q);
+bool isEmpty(Queue *q);
 void enqueue(Queue *q, float x, float y, float z);
 bool dequeue(Queue *q, float out[3]);
