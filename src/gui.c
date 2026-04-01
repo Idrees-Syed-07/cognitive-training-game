@@ -7,182 +7,175 @@
 #define COLOR_LIGHT "#f0d9b5"
 #define COLOR_DARK  "#b58863"
 
-static Graph *g_graph;
-static Player *g_player;
-static char *g_coin_path;
-static char *g_player_path;
-static GtkWidget *g_grid;
+static Graph *maze;
+static Player *player;
+static char *coin_image_path;
+static char *player_image_path;
+static GtkWidget *grid;
 
-static GtkWidget *g_cells[GRID_SIZE][GRID_SIZE];//map grid to GTK image
+static GtkWidget *cells[GRID_SIZE][GRID_SIZE];
+static Node *nodes[GRID_SIZE][GRID_SIZE]; 
 
-static Node *g_nodes[GRID_SIZE][GRID_SIZE]; // map grid to maze as user explores graph for fast search
+//updates the image of a cell based on its current state (empty, has coin, or player)
+static void update_cell(int x, int y) {
+    Node *node = nodes[x][y];
+    GtkWidget *image = cells[x][y];
 
-static void update_cell(int x, int y) 
-{
-    Node *node = g_nodes[x][y];//get node that player is currently on
-    GtkWidget *image = g_cells[x][y];//get GtkWidget that corresponsds to player current node
-
-    if (node == g_player->node) {
-        gtk_image_set_from_file(GTK_IMAGE(image), g_player_path);//get player sprite
-        gtk_image_set_pixel_size(GTK_IMAGE(image), CELL_SIZE);//set sprite size
+    if (node == player->node) {
+        gtk_image_set_from_file(GTK_IMAGE(image), player_image_path);
+        gtk_image_set_pixel_size(GTK_IMAGE(image), CELL_SIZE);
     } else if (node && node->has_coin) {
-        gtk_image_set_from_file(GTK_IMAGE(image), g_coin_path);//get coin and load
+        gtk_image_set_from_file(GTK_IMAGE(image), coin_image_path);
         gtk_image_set_pixel_size(GTK_IMAGE(image), CELL_SIZE);
     } else {
-        gtk_image_clear(GTK_IMAGE(image));//clear in base case
+        gtk_image_clear(GTK_IMAGE(image));
     }
 }
 
-static void show_win_dialog(GtkWidget *window) //call once coin count is 0
-{
-    GtkAlertDialog *dialog = gtk_alert_dialog_new("You collected all the coins! You win!");
-    gtk_alert_dialog_show(dialog, GTK_WINDOW(window));
-    g_object_unref(dialog);
+//closes program when dialogue box is closed
+static void dialogue_close(GObject *source, GAsyncResult *result, gpointer user_data) {
+    GtkWindow *window = GTK_WINDOW(user_data);
+    gtk_window_destroy(window);
 }
 
-static gboolean on_key_pressed(GtkEventControllerKey *controller,
-                                guint keyval, guint keycode,
-                                GdkModifierType state, gpointer user_data)// when user presses key
-{
-    (void)controller;
-    (void)keycode;
-    (void)state;
+//shows a dialogue box when the player wins
+static void show_win_dialogue(GtkWidget *window) {
+    GtkAlertDialog *dialogue = gtk_alert_dialog_new("You collected all the coins! You win!");
+    gtk_alert_dialog_choose(dialogue, GTK_WINDOW(window), NULL, dialogue_close, window);
+    g_object_unref(dialogue);
+}
 
-    char dir = 0;
-    switch (keyval) {
-        case GDK_KEY_w: case GDK_KEY_W: dir = 'w'; break;//switch cases for user input
-        case GDK_KEY_a: case GDK_KEY_A: dir = 'a'; break;
-        case GDK_KEY_s: case GDK_KEY_S: dir = 's'; break;
-        case GDK_KEY_d: case GDK_KEY_D: dir = 'd'; break;
-        default: return FALSE;
-    }
+//moves the player when a key is pressed 
+static gboolean key_pressed(GtkEventControllerKey *controller, guint keyval, guint keycode, GdkModifierType state, gpointer user_data) {
+    //getting direction based on which key was pressed
+    Direction direction;
+    if (keyval == GDK_KEY_w || keyval == GDK_KEY_W) direction = UP;
+    else if (keyval == GDK_KEY_a || keyval == GDK_KEY_A) direction = LEFT;
+    else if (keyval == GDK_KEY_s || keyval == GDK_KEY_S) direction = DOWN;
+    else if (keyval == GDK_KEY_d || keyval == GDK_KEY_D) direction = RIGHT;
+    else return FALSE;
 
-    int old_x = g_player->node->visual_position[0];
-    int old_y = g_player->node->visual_position[1];
+    int old_x = player->node->visual_position[0];
+    int old_y = player->node->visual_position[1];
 
-    MoveResult result = player_move(g_player, dir);
+    //checking what happens when player tries to move in that direction
+    MoveResult result = move_player(player, direction);
 
     if (result == MOVE_WALL) {
-        audio_play();
+        play_audio();
         return TRUE;
     }
 
-    /* Update the old cell and the new cell */
-    update_cell(old_x, old_y);//clear old cell
-    update_cell(g_player->node->visual_position[0], g_player->node->visual_position[1]);//update new position
+    //updating screen
+    update_cell(old_x, old_y);
+    update_cell(player->node->visual_position[0], player->node->visual_position[1]);
 
-    if (result == MOVE_WIN) {
-        show_win_dialog(GTK_WIDGET(user_data));
-    }
-
+    if (result == MOVE_WIN) show_win_dialogue(GTK_WIDGET(user_data));
+    
     return TRUE;
 }
 
-static void load_css(void) 
-{//load grid 
-    GtkCssProvider *provider = gtk_css_provider_new();//css object that can hold css data
-    const char *css =
-        ".cell-light { background-color: " COLOR_LIGHT "; }"
-        ".cell-dark  { background-color: " COLOR_DARK "; }";// grid colours
-    gtk_css_provider_load_from_string(provider, css);//load to css object
-    gtk_style_context_add_provider_for_display(
-        gdk_display_get_default(),
-        GTK_STYLE_PROVIDER(provider),
-        GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
-    g_object_unref(provider);// free
+//loading css used for cell background colours
+static void load_css(void) {
+    GtkCssProvider *provider = gtk_css_provider_new();
+
+    char *css = ".cell-light { background-color: " COLOR_LIGHT "; }.cell-dark  { background-color: " COLOR_DARK "; }";
+
+    gtk_css_provider_load_from_string(provider, css);
+    gtk_style_context_add_provider_for_display(gdk_display_get_default(), GTK_STYLE_PROVIDER(provider),
+                                                GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+
+    g_object_unref(provider);
 }
 
-static GtkWidget *build_grid(void) 
-{
-    g_grid = gtk_grid_new();
-    gtk_grid_set_row_homogeneous(GTK_GRID(g_grid), TRUE);// make row and column equal heigh
-    gtk_grid_set_column_homogeneous(GTK_GRID(g_grid), TRUE);
+//creating grid of cells and populating it
+static GtkWidget *build_grid(void) {
+    grid = gtk_grid_new();
 
+    //all cells same size
+    gtk_grid_set_row_homogeneous(GTK_GRID(grid), TRUE);
+    gtk_grid_set_column_homogeneous(GTK_GRID(grid), TRUE);
+
+    //for each cell
     for (int row = 0; row < GRID_SIZE; row++) {
-        for (int col = 0; col < GRID_SIZE; col++) {// generate grid only runs once so efficiency doesnt matter as much
-            Node *node = g_graph->nodes[row][col];
+        for (int col = 0; col < GRID_SIZE; col++) {
             GtkWidget *image;
+            Node *node = maze->nodes[row][col];
 
-            if (node == g_player->node) {
-                image = gtk_image_new_from_file(g_player_path);//get plyer sprite and set sprite size
+            //showing image based on what the cell has
+            if (node == player->node) {
+                image = gtk_image_new_from_file(player_image_path);
                 gtk_image_set_pixel_size(GTK_IMAGE(image), CELL_SIZE);
             } else if (node->has_coin) {
-                image = gtk_image_new_from_file(g_coin_path);//get coin and set coin size
+                image = gtk_image_new_from_file(coin_image_path);
                 gtk_image_set_pixel_size(GTK_IMAGE(image), CELL_SIZE);
             } else {
-                image = gtk_image_new();//make empty image object
+                image = gtk_image_new();
             }
 
-            /* Wrap image in a box with checkerboard background */
-            GtkWidget *cell = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);//make box
-            gtk_widget_set_size_request(cell, CELL_SIZE, CELL_SIZE);//set box size
-            gtk_widget_set_halign(image, GTK_ALIGN_CENTER);//center image
-            gtk_widget_set_valign(image, GTK_ALIGN_CENTER)
-            gtk_box_append(GTK_BOX(cell), image);// add image
+            //adding image to the cell and styling using css
+            GtkWidget *cell = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+            gtk_widget_set_size_request(cell, CELL_SIZE, CELL_SIZE);
+            gtk_widget_set_halign(image, GTK_ALIGN_CENTER);
+            gtk_widget_set_valign(image, GTK_ALIGN_CENTER);
+            gtk_box_append(GTK_BOX(cell), image);
+            const char *css_class = ((node->visual_position[0] + node->visual_position[1]) % 2 == 0) ? "cell-light" : "cell-dark";
+            gtk_widget_add_css_class(cell, css_class);
 
-            const char *css_class = ((node->visual_position[0] + node->visual_position[1]) % 2 == 0)? "cell-light" : "cell-dark"; //calculate grid colour
-            gtk_widget_add_css_class(cell, css_class);//adds css class to node for styling
-
-            gtk_grid_attach(GTK_GRID(g_grid), cell, node->visual_position[0], node->visual_position[1], 1, 1);// add widget to node
-            g_cells[node->visual_position[0]][node->visual_position[1]] = image;
-            g_nodes[node->visual_position[0]][node->visual_position[1]] = node;
+            //adding cell to grid and soring pointers for updating gui later
+            gtk_grid_attach(GTK_GRID(grid), cell, node->visual_position[0], node->visual_position[1], 1, 1);
+            cells[node->visual_position[0]][node->visual_position[1]] = image;
+            nodes[node->visual_position[0]][node->visual_position[1]] = node;
         }
     }
 
-    return g_grid;
+    return grid;
 }
 
-static void activate(GtkApplication *app, gpointer user_data) // runs once program is ready to load UI
-{
-    (void)user_data;
-
+//start up the gui
+static void activate(GtkApplication *game, gpointer user_data) {
     load_css();
 
-    GtkWidget *window = gtk_application_window_new(app);//create window
-    gtk_window_set_title(GTK_WINDOW(window), "Cognitive Training Game");//title page
-    gtk_window_set_default_size(GTK_WINDOW(window),
-                                CELL_SIZE * GRID_SIZE, CELL_SIZE * GRID_SIZE);
+    //creating window
+    GtkWidget *window = gtk_application_window_new(game);
+    gtk_window_set_title(GTK_WINDOW(window), "Cognitive Training Game");
+    gtk_window_set_default_size(GTK_WINDOW(window), CELL_SIZE * GRID_SIZE, CELL_SIZE * GRID_SIZE);
 
+    //creating grid in window
     GtkWidget *grid = build_grid();
     gtk_window_set_child(GTK_WINDOW(window), grid);
 
-    //add keyboard controller
+    //setting up key press event
     GtkEventController *key_ctrl = gtk_event_controller_key_new();
-    g_signal_connect(key_ctrl, "key-pressed", G_CALLBACK(on_key_pressed), window);
+    g_signal_connect(key_ctrl, "key-pressed", G_CALLBACK(key_pressed), window);
     gtk_widget_add_controller(window, key_ctrl);
 
+    //showing window
     gtk_window_present(GTK_WINDOW(window));
 }
 
-int gui_run(Graph *graph, int argc, char *argv[]) 
-{
-    g_graph = graph;
-    g_player = player_create(graph);
-    if (!g_player) {
-        fprintf(stderr, "Failed to create player.\n");
-        return 1;
-    }
+void run_gui(Graph *g, Player *p, int argc, char *argv[]) {
+    maze = g;
+    player = p;
 
-    /* Build asset paths relative to the executable */
-    char *exe_dir = g_path_get_dirname(argv[0]);//store asset file paths
-    g_coin_path = g_build_filename(exe_dir, "..", "assets", "images", "coin.png", NULL);
-    g_player_path = g_build_filename(exe_dir, "..", "assets", "images", "player.png", NULL);
-    char *wall_sound_path = g_build_filename(exe_dir, "..", "assets", "sounds", "wall.mp3", NULL);
-    g_free(exe_dir);//tfree string
+    //file names of assets based on exe location
+    char *exe_dir = g_path_get_dirname(argv[0]);
+    coin_image_path = g_build_filename(exe_dir, "..", "assets", "images", "coin.png", NULL);
+    player_image_path = g_build_filename(exe_dir, "..", "assets", "images", "player.png", NULL);
+    char *wall_sound_path = g_build_filename(exe_dir, "..", "assets", "sounds", "wall.wav", NULL);
+    g_free(exe_dir);
 
-    audio_init(wall_sound_path);//start audio system
+    load_audio(wall_sound_path);
     g_free(wall_sound_path);
 
-    GtkApplication *app = gtk_application_new("com.cognitive.training",
-                                               G_APPLICATION_DEFAULT_FLAGS);//create GTK app object
-    g_signal_connect(app, "activate", G_CALLBACK(activate), NULL);//setup input handling
+    //starting application
+    GtkApplication *game = gtk_application_new(NULL, G_APPLICATION_DEFAULT_FLAGS);
+    g_signal_connect(game, "activate", G_CALLBACK(activate), NULL);
+    g_application_run(G_APPLICATION(game), argc, argv);
 
-    int status = g_application_run(G_APPLICATION(app), argc, argv);//start GTK app
-
-    g_object_unref(app);//free after app closes
-    audio_free();
-    player_free(g_player);
-    g_free(g_coin_path);
-    g_free(g_player_path);
-    return status;
+    //cleaning up
+    g_object_unref(game);
+    free_audio();
+    g_free(coin_image_path);
+    g_free(player_image_path);
 }

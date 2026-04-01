@@ -2,7 +2,8 @@
 #define GUI_H
 
 #include "maze.h"
+#include "player.h"
 
-int gui_run(Graph *graph, int argc, char *argv[]);
+void run_gui(Graph *g, Player *p, int argc, char *argv[]);
 
 #endif

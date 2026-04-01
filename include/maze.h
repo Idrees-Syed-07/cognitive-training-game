@@ -24,7 +24,7 @@ typedef struct {
     Node *nodes[GRID_SIZE][GRID_SIZE];
 } Graph;
 
-void freeGraph(Graph *graph);
-void generateMaze(Graph* graph);
+void free_graph(Graph *graph);
+void generate_maze(Graph* graph);
 
 #endif

@@ -14,8 +14,7 @@ typedef struct {
     int coins_left;
 } Player;
 
-Player *player_create(Graph *graph);
-MoveResult player_move(Player *player, char direction);
-void player_free(Player *player);
+Player *create_player(Graph *maze);
+MoveResult move_player(Player *player, Direction direction);
 
 #endif
