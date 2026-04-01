@@ -3,9 +3,9 @@
 
 #include <stdbool.h>
 
-#define GRID_SIZE 5
+#define GRID_SIZE 4
 #define COIN_COUNT 3
-#define WALL_COUNT 10
+#define WALL_COUNT 7
 
 typedef enum {
     UP,

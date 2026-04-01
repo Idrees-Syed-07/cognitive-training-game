@@ -3,8 +3,8 @@
 #include "queue.h"
 #include <HijelHID_BLEKeyboard.h>
 
-#define THRESHOLD 1.01f
-#define COOLDOWN 200
+#define THRESHOLD 0.9f
+#define COOLDOWN 750
 #define SAMPLE_WINDOW 10
 
 MPU9250 accelerometer;
@@ -65,22 +65,22 @@ void processData(void* parameter) {
                 //checking for direction with largest acceleration, 
                 //sending corresponding input if above the threshold
                 //and updating last input time to current time if so
-                if (abs(average[X]) > abs(average[Y])) {
-                    if (average[X] > THRESHOLD) {
-                        bleKeyboard.tap(KEY_D);
-                        lastTriggerTime = time;
-                    }
-                    else if (average[X] < -THRESHOLD) {
+                if (abs(average[Y]) > abs(average[Z])) {
+                    if (average[Y] > THRESHOLD) {
                         bleKeyboard.tap(KEY_A);
                         lastTriggerTime = time;
                     }
-                } else {
-                    if (average[Y] > THRESHOLD) {
-                        bleKeyboard.tap(KEY_W);
+                    else if (average[Y] < -THRESHOLD) {
+                        bleKeyboard.tap(KEY_D);
                         lastTriggerTime = time;
                     }
-                    else if (average[Y] < -THRESHOLD) {
+                } else {
+                    if (average[Z] > THRESHOLD) {
                         bleKeyboard.tap(KEY_S);
+                        lastTriggerTime = time;
+                    }
+                    else if (average[Z] < -THRESHOLD) {
+                        bleKeyboard.tap(KEY_W);
                         lastTriggerTime = time;
                     }
                 }
@@ -117,6 +117,9 @@ void setup() {
         return;
     }
     delay(1000);
+
+    accelerometer.calibrateAccelGyro();
+    delay(10000);
 
     //running the two tasks (readAccelerometer and processData) on separate threads
     //so they can run at the same time
