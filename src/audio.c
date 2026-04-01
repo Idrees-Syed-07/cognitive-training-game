@@ -1,3 +1,5 @@
+// AUDIO ONLY WORKS ON WINDOWS //
+
 #include "audio.h"
 #include <windows.h>
 #include <mmsystem.h>

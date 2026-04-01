@@ -85,11 +85,12 @@ void free_graph(Graph *graph) {
     free(graph);
 }
 
-
+//generating nodes with random visual positions
 static void generate_nodes(Graph *graph) {
-    int positions[GRID_SIZE * GRID_SIZE][2];
+    int positions[GRID_SIZE * GRID_SIZE][2]; //array of xy coordinates
     int index = 0;
 
+    //filling array will all possible coordinates (0,0), (0,1), ..., (1, 0), (1,1), ...
     for (int i = 0; i < GRID_SIZE; i++) {
         for (int j = 0; j < GRID_SIZE; j++) {
             positions[index][0] = i;
@@ -99,32 +100,38 @@ static void generate_nodes(Graph *graph) {
         }
     }
 
-    for (int i = (GRID_SIZE * GRID_SIZE) - 1; i > 0; i--) {
-        int random = rand() % (i + 1);
+    //randomly shuffling visual positions in the array using Fisher-Yates algorithm
+    for (int i = (GRID_SIZE * GRID_SIZE) - 1; i > 0; i--) { 
+        int random = rand() % (i + 1); //get random visual position in array
         int temp[2] = {positions[i][0], positions[i][1]};
 
+        //swapping current visual position with random one
         for (int j = 0; j < 2; j++) {
             positions[i][j] = positions[random][j];
             positions[random][j] = temp[j];
         }
     }
 
+    //creating actual nodes in the graph with the random visual positions
     index = 0;
     for (int i = 0; i < GRID_SIZE; i++) {
         for (int j = 0; j < GRID_SIZE; j++) {
-            graph->nodes[i][j] = create_node((int[]){i, j}, (int[]){positions[index][0], positions[index][1]});
+            graph->nodes[i][j] = create_node((int[]) {i, j}, (int[]) {positions[index][0], positions[index][1]});
             index++;
         }
     }
 }
 
+//connecting nodes in the graph by up right down and left
 static void connect_graph(Graph *graph) {
+    //horizontal edges
     for (int i = 0; i < GRID_SIZE; i++) {
         for (int j = 0; j < GRID_SIZE - 1; j++) {
             link_nodes(graph->nodes[i][j], graph->nodes[i][j + 1], RIGHT);
         }
     }
 
+    //vertical edges
     for (int i = 0; i < GRID_SIZE - 1; i++) {
         for (int j = 0; j < GRID_SIZE; j++) {
             link_nodes(graph->nodes[i][j], graph->nodes[i + 1][j], DOWN);
@@ -132,13 +139,16 @@ static void connect_graph(Graph *graph) {
     }
 }
 
+//randomly adding coins in graph
 static void place_coins(Graph *graph) {
     int placed = 0;
 
     while (placed < COIN_COUNT) {
+        //getting random position
         int row = rand() % GRID_SIZE;
         int col = rand() % GRID_SIZE;
 
+        //placing if no coin already
         if (!graph->nodes[row][col]->has_coin) {
             graph->nodes[row][col]->has_coin = true;
             placed++;
@@ -146,13 +156,22 @@ static void place_coins(Graph *graph) {
     }
 }
 
+//removing edges in the graph to create invisible walls, generating a maze
 static void add_walls(Graph *graph) {
-    typedef struct {int a_row, a_col, b_row, b_col;} Edge;
+    //this struct stores the positions of two nodes connected by an edge
+    typedef struct {
+        int a_row; 
+        int a_col;
+        int b_row;
+        int b_col;
+    } Edge;
 
+    //creating array to hold edges
     int total_edges = (GRID_SIZE - 1) * GRID_SIZE * 2;
     Edge *edges = malloc(sizeof(Edge) * total_edges);
     int edge_count = 0;
 
+    //filling array with horizontal edges
     for (int i = 0; i < GRID_SIZE; i++) {
         for (int j = 0; j < GRID_SIZE - 1; j++) {
             edges[edge_count] = (Edge){i, j, i, j + 1};
@@ -160,6 +179,7 @@ static void add_walls(Graph *graph) {
         }
     }
 
+    //filling array with vertical edges
     for (int i = 0; i < GRID_SIZE - 1; i++) {
         for (int j = 0; j < GRID_SIZE; j++) {
             edges[edge_count] = (Edge){i, j, i + 1, j};
@@ -167,20 +187,27 @@ static void add_walls(Graph *graph) {
         }
     }
 
+    //shuffling edges in the array using Fisher-Yates algorithm
     for (int i = edge_count - 1; i > 0; i--) {
-        int random = rand() % (i + 1);
+        //getting random edge in array
+        int random = rand() % (i + 1); 
         Edge temp = edges[i];
+        //swapping current edge with random one
         edges[i] = edges[random];
         edges[random] = temp;
     }
 
     int removed = 0;
-    for (int i = 0; i < edge_count && removed < WALL_COUNT; i++) {
+    for (int i = 0; i < edge_count; i++) {
+        if (removed == WALL_COUNT) break;
+
+        //getting the nodes connected by the random edge
         Node *a = graph->nodes[edges[i].a_row][edges[i].a_col];
         Node *b = graph->nodes[edges[i].b_row][edges[i].b_col];
 
         unlink_nodes(a, b);
 
+        //incrementing removed counter if graph still connected and relinking if not
         if (is_graph_connected(graph)) removed++;
         else link_nodes(a, b, edges[i].a_col == edges[i].b_col ? DOWN : RIGHT);
     }

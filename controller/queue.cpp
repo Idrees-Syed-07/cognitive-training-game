@@ -1,3 +1,5 @@
+// IMPLEMENTATION OF A CIRCULAR QUEUE THAT AUTOMATICALLY OVERWRITES OLD DATA //
+
 #include "queue.h"
 #include <stdlib.h>
 

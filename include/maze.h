@@ -24,7 +24,10 @@ typedef struct {
     Node *nodes[GRID_SIZE][GRID_SIZE];
 } Graph;
 
+//this function frees all the nodes in a graph and the graph itself
 void free_graph(Graph *graph);
+//this function generates a maze in the graph by generating nodes with
+//random visual positions, connecting them, placing coins and adding walls
 void generate_maze(Graph* graph);
 
 #endif

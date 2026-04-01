@@ -154,6 +154,8 @@ static void activate(GtkApplication *game, gpointer user_data) {
     gtk_window_present(GTK_WINDOW(window));
 }
 
+//this function starts the gui
+//we use argv to get relative file paths and argc because the GTK library needs it
 void run_gui(Graph *g, Player *p, int argc, char *argv[]) {
     maze = g;
     player = p;
