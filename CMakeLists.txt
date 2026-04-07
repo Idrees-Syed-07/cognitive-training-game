@@ -5,10 +5,7 @@ set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
 # Use UCRT (Universal C Runtime)
-if(MSVC)
-    # MSVC uses UCRT by default with /MD
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")
-elseif(MINGW)
+if(MINGW)
     # Ensure MinGW UCRT toolchain flags
     add_compile_definitions(_UCRT)
 endif()
