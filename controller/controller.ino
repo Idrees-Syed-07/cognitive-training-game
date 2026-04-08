@@ -65,7 +65,7 @@ void processData(void* parameter) {
                 //checking for direction with largest acceleration, 
                 //sending corresponding input if above the threshold
                 //and updating last input time to current time if so
-                if (abs(average[Y]) > abs(average[Z])) {
+                if (fabs(average[Y]) > fabs(average[Z])) {
                     if (average[Y] > THRESHOLD) {
                         bleKeyboard.tap(KEY_A);
                         lastTriggerTime = time;
